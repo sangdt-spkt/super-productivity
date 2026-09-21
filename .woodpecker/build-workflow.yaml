@@ -1,6 +1,8 @@
 when:
   - event: [push, manual, cron]
-    branch: [master, dev, feature-*]
+    branch: master
+  - event: manual
+    branch: [dev, feature-*]
 
 steps:
   # Create tag from package.version of super productivity app
@@ -14,8 +16,10 @@ steps:
   - name: docker-build
     image: woodpeckerci/plugin-docker-buildx
     settings:
+      repo: sangdt-spkt/super-productivity
       dockerfile: packages/super-sync-server/Dockerfile
       platforms: linux/amd64
+      no_cache: "true"
       logins:
         - registry: https://git.samurai-planet.top
           username:
