@@ -8,6 +8,8 @@ steps:
     image: node:20-alpine
     commands:
       - node -p "require('./package.json').version" > .tags
+      - echo "Tag value in .tags"
+      - cat .tags
 
   - name: docker-build
     image: woodpeckerci/plugin-docker-buildx
