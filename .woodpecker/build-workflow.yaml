@@ -16,7 +16,7 @@ steps:
   - name: docker-build
     image: woodpeckerci/plugin-docker-buildx
     settings:
-      repo: sangdt-spkt/super-productivity
+      repo: github.com/sangdt-spkt/super-productivity
       dockerfile: packages/super-sync-server/Dockerfile
       platforms: linux/amd64
       no_cache: "true"
