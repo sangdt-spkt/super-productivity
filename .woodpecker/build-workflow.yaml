@@ -3,15 +3,19 @@ when:
     branch: master
 
 steps:
+  # Create tag from package.version of super productivity app
+  - name: prepare-tag
+    image: node:20-alpine
+    commands:
+      - node -p "require('./package.json').version" > .tags
+
   - name: docker-build
     image: woodpeckerci/plugin-docker-buildx
     settings:
       dockerfile: packages/super-sync-server/Dockerfile
       platforms: linux/amd64
-      auto_tag: "true"
-      default_tag: "19.1.0"
       logins:
-        - registry: https://git.samurai-planet.top/
+        - registry: https://git.samurai-planet.top
           username:
             from_secret: forgejo-deploy-user
           password:
