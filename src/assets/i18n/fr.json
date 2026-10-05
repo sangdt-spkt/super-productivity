@@ -2127,7 +2127,7 @@
         "REMINDER_ADDED": "Tâche planifiée \"{{title}}\"",
         "REMINDER_DELETED": "Rappel supprimé pour la tâche",
         "REMINDER_UPDATED": "Rappel mis à jour pour la tâche \"{{title}}\"",
-        "TASK_ALREADY_EXISTS": "La tâche <strong>{{title}}<\\/strong> existe déjà",
+        "TASK_ALREADY_EXISTS": "La tâche <strong>{{title}}</strong> existe déjà",
         "TASK_CREATED": "Tâche créée \"{{taskTitle}}\"",
         "DEADLINE_REMOVED": "Échéance supprimée",
         "DEADLINE_SET": "Échéance définie pour le {{date}}"
@@ -3334,7 +3334,7 @@
     "UNABLE_TO_PERSIST_DATA": "Impossible de sauvegarder les données dans le stockage du plugin",
     "UNKNOWN_ERROR": "Une erreur inconnue est survenue",
     "UPLOAD_PLUGIN_INSTRUCTION": "Téléchargez un fichier ZIP de plugin pour l'installer :",
-    "VALIDATION_FAILED": "Échec de la validation",
+    "VALIDATION_FAILED": "Échec de la validation : {{errors}}",
     "CONFIRM_DISABLE_WITH_ISSUE_PROVIDERS": "Ce plugin fournit une intégration de tickets actuellement utilisée ({{count}} fournisseur(s) de tickets). Le désactiver interrompra temporairement la synchronisation des tickets pour ces fournisseurs jusqu'à sa réactivation. Êtes-vous sûr de vouloir désactiver \"{{name}}\" ?",
     "FAILED_TO_LOAD_COMMUNITY_PLUGINS": "Échec du chargement de la liste des plugins communautaires",
     "LANGUAGES": "Langues :",

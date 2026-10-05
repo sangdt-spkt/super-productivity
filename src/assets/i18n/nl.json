@@ -2120,7 +2120,7 @@
         "REMINDER_ADDED": "Geplande taak \"{{title}}\"",
         "REMINDER_DELETED": "Herinnering voor taak verwijderd",
         "REMINDER_UPDATED": "Herinnering voor taak \"{{title}}\" bijgewerkt",
-        "TASK_ALREADY_EXISTS": "Taak <strong>{{title}}<\\/strong> bestaat al",
+        "TASK_ALREADY_EXISTS": "Taak <strong>{{title}}</strong> bestaat al",
         "TASK_CREATED": "Taak \"{{taskTitle}}\" gemaakt",
         "DEADLINE_REMOVED": "Deadline verwijderd",
         "DEADLINE_SET": "Deadline ingesteld voor {{date}}"
@@ -3275,7 +3275,7 @@
     "UNABLE_TO_PERSIST_DATA": "Kan gegevens niet opslaan in pluginopslag",
     "UNKNOWN_ERROR": "Er is een onbekende fout opgetreden",
     "UPLOAD_PLUGIN_INSTRUCTION": "Upload een plugin ZIP-bestand om het te installeren:",
-    "VALIDATION_FAILED": "Validatie mislukt",
+    "VALIDATION_FAILED": "Validatie mislukt: {{errors}}",
     "CONFIRM_DISABLE_WITH_ISSUE_PROVIDERS": "Deze plugin biedt issue-integratie die momenteel in gebruik is ({{count}} issueprovider(s)). Het uitschakelen zal tijdelijk de issuesynchronisatie voor die providers verbreken totdat de plugin opnieuw wordt ingeschakeld. Weet je zeker dat je \"{{name}}\" wilt uitschakelen?",
     "FAILED_TO_LOAD_COMMUNITY_PLUGINS": "Kan lijst met communityplugins niet laden",
     "LANGUAGES": "Talen:",

@@ -22,6 +22,7 @@ import { IS_HYBRID_DEVICE } from '../../../util/is-mouse-primary';
 import { DRAG_DELAY_FOR_TOUCH } from '../../../app.constants';
 import { T } from '../../../t.const';
 import { TaskContextMenuComponent } from '../../tasks/task-context-menu/task-context-menu.component';
+import { TaskPriorityIndicatorComponent } from '../../tasks/task-priority-indicator/task-priority-indicator.component';
 import { MatIcon } from '@angular/material/icon';
 import { TagListComponent } from '../../tag/tag-list/tag-list.component';
 import { InlineInputComponent } from '../../../ui/inline-input/inline-input.component';
@@ -49,7 +50,8 @@ import { millisecondsDiffToRemindOption } from '../../tasks/util/remind-option-t
 import { PlannerActions } from '../store/planner.actions';
 import { DialogConfirmComponent } from '../../../ui/dialog-confirm/dialog-confirm.component';
 import { first } from 'rxjs/operators';
-import { isInputElement } from '../../../util/dom-element';
+import { isInputElement, isLinkTarget } from '../../../util/dom-element';
+import { isMultiSelectModifierEvent } from '../../../util/is-multi-select-modifier-event';
 import { parseDbDateStr } from '../../../util/parse-db-date-str';
 import {
   moveTaskDownInTodayList,
@@ -59,6 +61,8 @@ import {
 } from '../../work-context/store/work-context-meta.actions';
 import { WorkContextType } from '../../work-context/work-context.model';
 import { TODAY_TAG } from '../../tag/tag.const';
+import { ADD_TASK_INLINE_BTN_SELECTOR } from '../add-task-inline/add-task-inline.const';
+import { getNextPlannerAddButton } from '../get-next-planner-add-button';
 
 @Component({
   selector: 'planner-task',
@@ -71,6 +75,7 @@ import { TODAY_TAG } from '../../tag/tag.const';
     TagListComponent,
     InlineInputComponent,
     TaskContextMenuComponent,
+    TaskPriorityIndicatorComponent,
     MsToStringPipe,
     RenderLinksPipe,
     DoneToggleComponent,
@@ -173,11 +178,27 @@ export class PlannerTaskComponent implements OnInit, OnDestroy, AfterViewInit {
   @HostListener('click', ['$event'])
   async clickHandler(event: MouseEvent): Promise<void> {
     const target = event.target as HTMLElement | null;
-    if (this.focusable() && this._multiSelect.isActive()) {
-      this._multiSelect.clear();
-    }
-    if (target?.tagName === 'A' || target?.closest('a')) {
+    if (isLinkTarget(target)) {
       return;
+    }
+    // Mirrors the modifier/touch half of task.component's clear (which lives in
+    // its onHostMouseDown): a modifier click is building the selection and a
+    // touch tap is toggling it, so neither may clear it. The link bail-out above
+    // has to come first, or clicking a link inside a selected row drops the
+    // whole selection. NOT full parity: task.component also bails on every
+    // interactive target, so a click on a button or chip inside a selected
+    // planner row still clears here.
+    // The modifier term looks redundant against selectFromModifierClick's
+    // capture-phase stopPropagation, but that handler bails on inputs and never
+    // suppresses an at-target click — so modifier clicks on an input inside the
+    // row, and on the row element itself, still arrive here.
+    if (
+      this.focusable() &&
+      this._multiSelect.isActive() &&
+      !isMultiSelectModifierEvent(event) &&
+      !this._multiSelect.isTouchSelectionMode()
+    ) {
+      this._multiSelect.clear();
     }
     if (this.focusable()) {
       if (!this._isInteractiveClickTarget(target)) {
@@ -258,6 +279,9 @@ export class PlannerTaskComponent implements OnInit, OnDestroy, AfterViewInit {
       const host = this._elementRef.nativeElement as HTMLElement;
       const selectFromModifierClick = (event: MouseEvent): void => {
         const target = event.target;
+        // Touch selection mode deliberately swallows links too: the whole row
+        // is a selection target in that mode, which also suspends swipe, drag
+        // and title editing. Tapping the link needs the mode left first.
         if (this.isTouchSelecting()) {
           event.preventDefault();
           event.stopPropagation();
@@ -267,16 +291,27 @@ export class PlannerTaskComponent implements OnInit, OnDestroy, AfterViewInit {
         }
         if (
           !(event.ctrlKey || event.metaKey || event.shiftKey) ||
-          (target instanceof HTMLElement && isInputElement(target))
+          (target instanceof HTMLElement && isInputElement(target)) ||
+          // This runs in the CAPTURE phase, so without the bail-out a
+          // Ctrl/Cmd+click on a link is preventDefault'ed here and never opens
+          // its new tab — it would silently toggle the row instead.
+          isLinkTarget(target)
         ) {
           return;
         }
         event.preventDefault();
         event.stopPropagation();
-        host.focus();
         if (event.shiftKey) {
-          this._multiSelect.selectRange(this.task().id, event.ctrlKey || event.metaKey);
+          // Range first: until the clicked row takes focus, the focused row is
+          // the one a Shift+click with nothing selected starts from (#10143).
+          this._multiSelect.selectRange(
+            this.task().id,
+            event.ctrlKey || event.metaKey,
+            host,
+          );
+          host.focus();
         } else {
+          host.focus();
           this._multiSelect.toggle(this.task().id);
         }
       };
@@ -702,14 +737,14 @@ export class PlannerTaskComponent implements OnInit, OnDestroy, AfterViewInit {
     if (this._cardList) {
       return this._cardList.addButton();
     }
-    return (
-      (this._elementRef.nativeElement as HTMLElement)
-        .closest<HTMLElement>('[data-planner-selection-scope]')
-        ?.querySelector<HTMLElement>('add-task-inline button') ??
-      document.querySelector<HTMLElement>(
-        'planner-day[data-planner-selection-scope] add-task-inline button',
-      )
+    const scope = (this._elementRef.nativeElement as HTMLElement).closest<HTMLElement>(
+      '[data-planner-selection-scope]',
     );
+    // Overdue has no add button; capture the next section's before it disappears.
+    return scope
+      ? (scope.querySelector<HTMLElement>(ADD_TASK_INLINE_BTN_SELECTOR) ??
+          getNextPlannerAddButton(scope))
+      : null;
   }
 
   private _openContextMenuFromKeyboard(): void {

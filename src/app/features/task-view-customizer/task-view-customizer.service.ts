@@ -1,3 +1,4 @@
+import { getTaskPriority } from '../tasks/task-priority.const';
 import { computed, effect, Injectable, inject, signal } from '@angular/core';
 import { Observable, animationFrameScheduler, combineLatest, of } from 'rxjs';
 import { map, observeOn, switchMap, take } from 'rxjs/operators';
@@ -194,9 +195,16 @@ export class TaskViewCustomizerService {
     const currentFilter = OPTIONS.filter.list.find(
       (option) => option.type === stored.type,
     );
-    return currentFilter
-      ? { ...currentFilter, preset: stored.preset ?? null }
-      : DEFAULT_OPTIONS.filter;
+    let preset = stored.preset ?? null;
+    // Historical local presets used the same string encoding as task priorities.
+    // Adopt the current menu value without rewriting the tasks themselves.
+    if (
+      stored.type === FILTER_OPTION_TYPE.priority &&
+      (preset === 'high' || preset === 'medium' || preset === 'low')
+    ) {
+      preset = String(getTaskPriority(preset));
+    }
+    return currentFilter ? { ...currentFilter, preset } : DEFAULT_OPTIONS.filter;
   }
 
   customizeUndoneTasks(
@@ -299,6 +307,12 @@ export class TaskViewCustomizerService {
             : 0;
           return spent >= +value;
         });
+      case FILTER_OPTION_TYPE.priority:
+        if (value === FILTER_COMMON.NOT_SPECIFIED) {
+          return tasks.filter((t) => !getTaskPriority(t.priority));
+        }
+
+        return tasks.filter((t) => getTaskPriority(t.priority) === +value);
       default:
         return tasks;
     }
@@ -362,6 +376,14 @@ export class TaskViewCustomizerService {
 
       case SORT_OPTION_TYPE.tag: {
         return tasksCopy.sort(sortByTagRank);
+      }
+
+      case SORT_OPTION_TYPE.priority: {
+        return tasksCopy.sort(
+          (a, b) =>
+            ((getTaskPriority(b.priority) ?? 0) - (getTaskPriority(a.priority) ?? 0)) *
+            factor,
+        );
       }
 
       case SORT_OPTION_TYPE.creationDate:
@@ -671,12 +693,15 @@ export class TaskViewCustomizerService {
   }
 
   setSort(val: SortOption): void {
-    const isSame = val.type === this.selectedSort().type;
-    if (isSame) {
-      // reverse sorting
-      val.order = val.order === SORT_ORDER.ASC ? SORT_ORDER.DESC : SORT_ORDER.ASC;
-    }
-    this.selectedSort.set({ ...val });
+    const current = this.selectedSort();
+    const isSame = val.type === current.type;
+    const next = {
+      ...val,
+      ...(isSame && {
+        order: current.order === SORT_ORDER.ASC ? SORT_ORDER.DESC : SORT_ORDER.ASC,
+      }),
+    };
+    this.selectedSort.set(next);
   }
 
   setGroup(val: GroupOption): void {

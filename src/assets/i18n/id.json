@@ -1122,7 +1122,7 @@
     "REMINDER": {
       "COUNTDOWN_BANNER": {
         "START_NOW": "Mulai sekarang",
-        "TXT": "<strong>{{title}}<\\/strong> dimulai pada <strong>{{start}}<\\/strong>!",
+        "TXT": "<strong>{{title}}</strong> dimulai pada <strong>{{start}}</strong>!",
         "TXT_MULTIPLE": {
           "OTHER": "<strong>{{title}}</strong> dimulai dari <strong>{{start}}</strong>!<br> (dan {{nrOfOtherBanners}} tugas-tugas lain yang harus diselesaikan)",
           "ONE": "<strong>{{title}}</strong> dimulai pukul <strong>{{start}}</strong>!<br> (dan {{nrOfOtherBanners}} tugas lain sudah tiba waktunya)"
@@ -2120,7 +2120,7 @@
         "REMINDER_ADDED": "Tugas \"{{title}}\" terjadwal",
         "REMINDER_DELETED": "Pengingat yang dihapus untuk tugas",
         "REMINDER_UPDATED": "Pengingat yang diperbarui untuk tugas \"{{title}}\"",
-        "TASK_ALREADY_EXISTS": "Tugas <strong>{{title}}<\\/strong> sudah ada",
+        "TASK_ALREADY_EXISTS": "Tugas <strong>{{title}}</strong> sudah ada",
         "TASK_CREATED": "tugas yang dibuat \"{{taskTitle}}\"",
         "DEADLINE_REMOVED": "Tenggat waktu dihapus",
         "DEADLINE_SET": "Tenggat waktu ditetapkan untuk {{date}}"
@@ -3275,7 +3275,7 @@
     "UNABLE_TO_PERSIST_DATA": "Tidak dapat menyimpan data ke penyimpanan plugin",
     "UNKNOWN_ERROR": "Terjadi kesalahan yang tidak diketahui",
     "UPLOAD_PLUGIN_INSTRUCTION": "Unggah file ZIP plugin untuk menginstalnya:",
-    "VALIDATION_FAILED": "Validasi gagal",
+    "VALIDATION_FAILED": "Validasi gagal: {{errors}}",
     "CONFIRM_DISABLE_WITH_ISSUE_PROVIDERS": "Plugin ini menyediakan integrasi isu yang sedang digunakan ({{count}} penyedia isu). Menonaktifkannya akan menghentikan sementara sinkronisasi isu untuk penyedia tersebut hingga plugin diaktifkan kembali. Apakah Anda yakin ingin menonaktifkan \"{{name}}\"?",
     "FAILED_TO_LOAD_COMMUNITY_PLUGINS": "Gagal memuat daftar plugin komunitas",
     "LANGUAGES": "Bahasa:",

@@ -57,8 +57,6 @@ export interface ElectronAPI {
 
   fileSyncRemove(args: { relativePath: string }): Promise<unknown | Error>;
 
-  fileSyncListFiles(args: { relativePath?: string }): Promise<string[] | Error>;
-
   checkDirExists(args: { relativePath?: string }): Promise<true | Error>;
 
   /**
@@ -235,7 +233,7 @@ export interface ElectronAPI {
 
   setProgressBar(args: {
     progress: number;
-    progressBarMode: 'normal' | 'pause' | 'none';
+    progressBarMode: 'normal' | 'paused' | 'none';
   }): void;
 
   sendAppSettingsToElectron(globalCfg: GlobalConfigState): void;

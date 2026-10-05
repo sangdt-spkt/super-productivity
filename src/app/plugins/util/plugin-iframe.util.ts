@@ -79,6 +79,7 @@ const ALLOWED_IFRAME_API_METHODS = new Set([
   'decrementCounter',
   'deleteCounter',
   'getAllCounters',
+  'getAllSimpleCounters',
 ]);
 
 const isTransparentCssValue = (value: string): boolean => {
@@ -454,6 +455,7 @@ export const createPluginApiScript = (config: PluginIframeConfig): string => {
           registerHook: (hook, handler) => callApi('registerHook', [hook, handler]),
           registerHeaderButton: unsupportedIframeRegistration('registerHeaderButton'),
           registerMenuEntry: unsupportedIframeRegistration('registerMenuEntry'),
+          registerTaskContextMenuEntry: unsupportedIframeRegistration('registerTaskContextMenuEntry'),
           registerConfigHandler: unsupportedIframeRegistration('registerConfigHandler'),
           registerShortcut: unsupportedIframeRegistration('registerShortcut'),
           unregisterShortcut: unsupportedIframeRegistration('unregisterShortcut'),
@@ -483,6 +485,7 @@ export const createPluginApiScript = (config: PluginIframeConfig): string => {
           decrementCounter: (id, decrementBy) => callApi('decrementCounter', [id, decrementBy]),
           deleteCounter: (id) => callApi('deleteCounter', [id]),
           getAllCounters: () => callApi('getAllCounters'),
+          getAllSimpleCounters: () => callApi('getAllSimpleCounters'),
 
           // i18n
           translate: (key, params) => callApi('translate', [key, params]),
@@ -678,7 +681,9 @@ export const handlePluginMessage = async (
         if (args.length >= 2) {
           const [hook, handlerPlaceholder] = args;
           PluginLog.log('Plugin iframe registerHook:', {
+            // eslint-disable-next-line local-rules/no-user-content-in-logs -- grandfathered log baseline (2026-09), not yet triaged
             hook,
+            // eslint-disable-next-line local-rules/no-user-content-in-logs -- grandfathered log baseline (2026-09), not yet triaged
             handlerPlaceholder,
             pluginId: config.pluginId,
           });

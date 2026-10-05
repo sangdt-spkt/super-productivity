@@ -11,7 +11,7 @@ import { SnackService } from '../../core/snack/snack.service';
 import { DateService } from '../../core/date/date.service';
 import { GlobalConfigService } from '../config/global-config.service';
 import { WorkContextService } from '../work-context/work-context.service';
-import { Task, TaskReminderOptionId, TaskWithSubTasks } from './task.model';
+import { Task, TaskPriority, TaskReminderOptionId, TaskWithSubTasks } from './task.model';
 import {
   selectTaskEntities,
   selectTaskByIdWithSubTaskData,
@@ -41,9 +41,12 @@ import {
   resolveTagIntent,
   splitParentOnly,
 } from './task-bulk-action.util';
+import { TASK_PRIORITY_LABEL_KEY, getTaskPriority } from './task-priority.const';
 import { isTouchActive } from '../../util/input-intent';
 import { LocaleDatePipe } from '../../ui/pipes/locale-date.pipe';
 import { msToString } from '../../ui/duration/ms-to-string.pipe';
+import { ADD_TASK_INLINE_BTN_SELECTOR } from '../planner/add-task-inline/add-task-inline.const';
+import { getNextPlannerAddButton } from '../planner/get-next-planner-add-button';
 
 interface DateTimePick {
   date: Date | null;
@@ -563,6 +566,33 @@ export class TaskBulkActionService {
     this._finish();
   }
 
+  // ---- PRIORITY ---------------------------------------------------------
+
+  /** Sets one priority on every selected task, or clears it with `null`. */
+  async setPriority(priority: TaskPriority | null): Promise<void> {
+    const tasks = this._resolveInVisualOrder().filter(
+      (t) => getTaskPriority(t.priority) !== priority,
+    );
+    if (!tasks.length) {
+      this._snackNothingToDo();
+      return;
+    }
+    await this._runSuppressed(() =>
+      tasks.forEach((t) => this._taskService.update(t.id, { priority })),
+    );
+    if (priority) {
+      this._snack(
+        'PRIORITY_SET',
+        tasks.length,
+        { priority: this._translateService.instant(TASK_PRIORITY_LABEL_KEY[priority]) },
+        'priority_high',
+      );
+    } else {
+      this._snack('PRIORITY_CLEARED', tasks.length);
+    }
+    this._finish();
+  }
+
   // ---- BACKLOG ----------------------------------------------------------
 
   async moveToBacklog(): Promise<void> {
@@ -761,13 +791,19 @@ export class TaskBulkActionService {
     const selectedPlannerRow = rows.find(
       (row) => row.matches('planner-task') && selected.has(idOf(row)),
     );
-    return (
-      selectedPlannerRow
-        ?.closest<HTMLElement>(
-          'planner-day[data-planner-selection-scope], [data-board-selection-scope]',
-        )
-        ?.querySelector<HTMLElement>('add-task-inline button') ?? null
+    const rowScope = selectedPlannerRow?.closest<HTMLElement>(
+      '[data-planner-selection-scope], [data-board-selection-scope]',
     );
+    if (!rowScope) {
+      return null;
+    }
+    const inScope = rowScope.querySelector<HTMLElement>(ADD_TASK_INLINE_BTN_SELECTOR);
+    if (inScope || rowScope.matches('[data-board-selection-scope]')) {
+      // Board panels stop here even with nothing to offer: reaching into a
+      // sibling panel is the cross-panel jump this fallback exists to avoid.
+      return inScope ?? null;
+    }
+    return getNextPlannerAddButton(rowScope);
   }
 
   /**

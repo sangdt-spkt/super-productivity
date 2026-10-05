@@ -2093,7 +2093,7 @@
         "REMINDER_ADDED": "Aikataulutettu <strong>{{title}}</strong> klo <strong>{{date}}</strong>",
         "REMINDER_DELETED": "Poistettiin muistutus tehtävälle",
         "REMINDER_UPDATED": "Päivitettiin muistutus tehtävälle \"{{title}}\"",
-        "TASK_ALREADY_EXISTS": "Tehtävä <strong>{{title}}<\\/strong> on jo olemassa",
+        "TASK_ALREADY_EXISTS": "Tehtävä <strong>{{title}}</strong> on jo olemassa",
         "TASK_CREATED": "Luotiin tehtävä \"{{taskTitle}}\"",
         "DEADLINE_REMOVED": "Määräaika poistettu",
         "DEADLINE_SET": "Määräaika asetettu: {{date}}"
@@ -3274,7 +3274,7 @@
     "UNABLE_TO_PERSIST_DATA": "Tietojen tallentaminen laajennuksen tallennustilaan ei onnistu",
     "UNKNOWN_ERROR": "Tuntematon virhe tapahtui",
     "UPLOAD_PLUGIN_INSTRUCTION": "Lataa laajennus ZIP-tiedosto asentaaksesi sen:",
-    "VALIDATION_FAILED": "Vahvistus epäonnistui",
+    "VALIDATION_FAILED": "Vahvistus epäonnistui: {{errors}}",
     "CONFIRM_DISABLE_WITH_ISSUE_PROVIDERS": "Tämä lisäosa tarjoaa tehtäväintegraation, joka on käytössä ({{count}} tehtävätarjoajaa). Sen poistaminen käytöstä rikkoo tilapäisesti tehtävien synkronoinnin näille tarjoajille, kunnes lisäosa otetaan uudelleen käyttöön. Haluatko varmasti poistaa käytöstä \"{{name}}\"?",
     "FAILED_TO_LOAD_COMMUNITY_PLUGINS": "Yhteisölisäosien listan lataus epäonnistui",
     "INDEX_HTML_NOT_LOADED": "Lisäosan index.html ei latautunut",

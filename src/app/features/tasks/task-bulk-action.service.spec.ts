@@ -167,7 +167,14 @@ describe('TaskBulkActionService', () => {
             activeWorkContext$: defer(() => of({ isEnableBacklog })),
           },
         },
-        { provide: TranslateService, useValue: { currentLang: 'en', defaultLang: 'en' } },
+        {
+          provide: TranslateService,
+          useValue: {
+            currentLang: 'en',
+            defaultLang: 'en',
+            instant: (key: string) => key,
+          },
+        },
         { provide: TranslateStore, useValue: { getTranslations: () => ({}) } },
         { provide: LocaleDatePipe, useValue: { transform: () => 'DATE' } },
       ],
@@ -239,7 +246,10 @@ describe('TaskBulkActionService', () => {
       const otherDay = document.createElement('planner-day');
       otherDay.setAttribute('data-planner-selection-scope', '2026-09-11');
       const otherAddTask = document.createElement('add-task-inline');
-      otherAddTask.appendChild(document.createElement('button'));
+      const otherAdd = document.createElement('button');
+      // Mirrors the real template's marker on the collapsed add button.
+      otherAdd.setAttribute('data-add-task-btn', '');
+      otherAddTask.appendChild(otherAdd);
       otherDay.appendChild(otherAddTask);
       const day = document.createElement('planner-day');
       day.setAttribute('data-planner-selection-scope', '2026-09-12');
@@ -249,6 +259,7 @@ describe('TaskBulkActionService', () => {
       row.tabIndex = 0;
       const addTask = document.createElement('add-task-inline');
       const add = document.createElement('button');
+      add.setAttribute('data-add-task-btn', '');
       addTask.appendChild(add);
       day.append(row, addTask);
       const unrelatedTask = document.createElement('task');
@@ -269,6 +280,39 @@ describe('TaskBulkActionService', () => {
       otherDay.remove();
       day.remove();
       unrelatedTask.remove();
+    });
+
+    it('falls through to the next Planner section when overdue empties', async () => {
+      isConfirmBeforeDelete = false;
+      select([t('late')]);
+      const root = document.createElement('div');
+      // The overdue section is a plain div, not a planner-day, and has no add
+      // button of its own — it disappears once its last task leaves.
+      root.innerHTML = `
+        <div data-planner-selection-scope="overdue">
+          <planner-task data-task-selectable="true" data-task-id="late" tabindex="0"></planner-task>
+        </div>
+        <planner-day data-planner-selection-scope="2026-09-12">
+          <add-task-inline><button data-add-task-btn></button></add-task-inline>
+        </planner-day>`;
+      document.body.appendChild(root);
+      try {
+        const row = root.querySelector<HTMLElement>('[data-task-id="late"]')!;
+        const nextAdd = root.querySelector<HTMLElement>('[data-add-task-btn]')!;
+        spyOnProperty(document, 'activeElement', 'get').and.returnValue(row);
+        let isDestroyed = false;
+        multiSelect.isDestroyedHost = (el: Element) => isDestroyed && el === row;
+        taskService.remove.and.callFake(() => {
+          isDestroyed = true;
+        });
+        spyOn(nextAdd, 'focus');
+
+        await service.deleteSelected();
+
+        expect(nextAdd.focus).toHaveBeenCalled();
+      } finally {
+        root.remove();
+      }
     });
 
     it('restores focus in the originating board panel when the bulk menu had focus', async () => {
@@ -516,6 +560,53 @@ describe('TaskBulkActionService', () => {
       await service.setEstimate(0);
       expect(snackService.open).toHaveBeenCalledWith(
         jasmine.objectContaining({ msg: 'F.TASK.MULTI_SELECT.S.ESTIMATE_CLEARED.OTHER' }),
+      );
+    });
+  });
+
+  describe('setPriority', () => {
+    it('updates only the tasks whose priority differs', async () => {
+      select([t('a'), t('same', { priority: 'high' }), t('low', { priority: 1 })]);
+
+      await service.setPriority(3);
+
+      expect(taskService.update).toHaveBeenCalledTimes(2);
+      expect(taskService.update).toHaveBeenCalledWith('a', { priority: 3 });
+      expect(taskService.update).toHaveBeenCalledWith('low', { priority: 3 });
+      expect(snackService.open).toHaveBeenCalledWith(
+        jasmine.objectContaining({
+          msg: 'F.TASK.MULTI_SELECT.S.PRIORITY_SET.OTHER',
+          translateParams: jasmine.objectContaining({
+            count: 2,
+            priority: T.F.TASK.CMP.PRIORITY_HIGH,
+          }),
+        }),
+      );
+    });
+
+    it('does nothing when every task already has that priority', async () => {
+      select([t('a', { priority: 2 }), t('b', { priority: 'medium' })]);
+
+      await service.setPriority(2);
+
+      expect(taskService.update).not.toHaveBeenCalled();
+      expect(snackService.open).toHaveBeenCalledWith(
+        jasmine.objectContaining({ msg: T.F.TASK.MULTI_SELECT.S.NOTHING_TO_DO }),
+      );
+    });
+
+    it('clears the priority and says so', async () => {
+      select([t('a', { priority: 3 }), t('none')]);
+
+      await service.setPriority(null);
+
+      expect(taskService.update).toHaveBeenCalledTimes(1);
+      expect(taskService.update).toHaveBeenCalledWith('a', { priority: null });
+      expect(snackService.open).toHaveBeenCalledWith(
+        jasmine.objectContaining({
+          msg: 'F.TASK.MULTI_SELECT.S.PRIORITY_CLEARED.OTHER',
+          translateParams: jasmine.objectContaining({ count: 1 }),
+        }),
       );
     });
   });

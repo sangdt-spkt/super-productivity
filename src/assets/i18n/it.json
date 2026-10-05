@@ -2120,7 +2120,7 @@
         "REMINDER_ADDED": "Pianificata attività <strong>{{title}}</strong> alle <strong>{{date}}</strong>",
         "REMINDER_DELETED": "Cancellato promemoria per attività",
         "REMINDER_UPDATED": "Aggiornato promemoria per attività \"{{title}}\"",
-        "TASK_ALREADY_EXISTS": "L'attività <strong>{{title}}<\\/strong> esiste già",
+        "TASK_ALREADY_EXISTS": "L'attività <strong>{{title}}</strong> esiste già",
         "TASK_CREATED": "Creata attività \"{{taskTitle}}\"",
         "DEADLINE_REMOVED": "Scadenza rimossa",
         "DEADLINE_SET": "Scadenza impostata per {{date}}"
@@ -3274,7 +3274,7 @@
     "UNABLE_TO_PERSIST_DATA": "Impossibile persistere i dati nello storage del plugin",
     "UNKNOWN_ERROR": "Si è verificato un errore sconosciuto",
     "UPLOAD_PLUGIN_INSTRUCTION": "Carica un file ZIP del plugin per installarlo:",
-    "VALIDATION_FAILED": "Validazione fallita",
+    "VALIDATION_FAILED": "Validazione fallita: {{errors}}",
     "CONFIRM_DISABLE_WITH_ISSUE_PROVIDERS": "Questo plugin fornisce un'integrazione issue attualmente in uso ({{count}} provider di issue). Disattivarlo interromperà temporaneamente la sincronizzazione issue per quei provider fino alla riattivazione del plugin. Sei sicuro di voler disattivare \"{{name}}\"?",
     "FAILED_TO_LOAD_COMMUNITY_PLUGINS": "Caricamento lista plugin della comunità fallito",
     "INDEX_HTML_NOT_LOADED": "index.html del plugin non caricato",
