@@ -2,11 +2,14 @@
 
 ## Requirements
 
-An upload with a missing acknowledgement may already be stored. Retry its original
-operation ID, clock and payload until a verified rejection establishes that it was
-not stored. Preserve tracked time and task content on every device, after reload
-and on a fresh client. Live application and hydration must produce the same Today
-ordering. Existing pending rows and interrupted uploads must remain supported.
+An upload with a missing acknowledgement may already be stored. File providers
+retry its original operation ID, clock and payload. SuperSync may rebase kept time
+deltas for released-client compatibility, but a duplicate-ID rejection is recovered
+only by verifying the original server receipt and restoring its clock atomically
+with acknowledgement; see [the recovery contract](time-delta-retry-recovery.md).
+Preserve tracked time and task content on every device, after reload and on a fresh
+client. Live application and hydration must produce the same Today ordering.
+Existing pending rows and interrupted uploads must remain supported.
 
 The repair must preserve the existing field-resolution contracts: no merging
 values from LWW resolution rows, and no projection of opaque planning actions

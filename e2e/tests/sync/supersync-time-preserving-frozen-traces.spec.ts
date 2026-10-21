@@ -235,6 +235,18 @@ test.describe('@supersync original frozen time and restart traces (#10499)', () 
           for (const state of before)
             expect(state.tasks.entities[ids.t3].timeSpent).toBe(7000);
         }
+        // Rebasing an older resolution snapshot must not override B's later notes.
+        if (fixture.name === '20725008-notes-order') {
+          for (const state of before)
+            expect(state.tasks.entities[ids.t3]['notes']).toBe('B27');
+        }
+        // Kept local-win deltas must not move beyond the snapshot containing them.
+        if (fixture.name === '20725013-delta-order') {
+          for (const state of before) {
+            expect(state.tasks.entities[ids.t3].timeSpent).toBe(15000);
+            expect(state.tasks.entities[ids.t3]['title']).toBe('B17');
+          }
+        }
         // Compare each device to itself: seed23 has an independent pre-existing
         // B-vs-fresh residue, which must not mask C's introduced restart change.
         for (const [index, client] of clients.entries()) {

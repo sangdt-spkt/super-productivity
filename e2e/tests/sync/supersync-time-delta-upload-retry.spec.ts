@@ -214,15 +214,6 @@ test.describe('@supersync time delta upload identity', () => {
             expect(
               body.results.find((result) => result.opId === original.id)?.accepted,
             ).toBe(accepted);
-            if (!accepted) {
-              const patch = upload.ops.find(
-                (op) => op.actionType === '[TASK] LWW Update',
-              );
-              expect(patch).toBeDefined();
-              expect(
-                body.results.find((result) => result.opId === patch?.id)?.accepted,
-              ).toBe(true);
-            }
             stored = true;
           }
           await route.abort('failed');
@@ -230,14 +221,12 @@ test.describe('@supersync time delta upload identity', () => {
         });
         // Use the real immediate uploader to send B's delta and rename before
         // B downloads A/C. The server stores both; B sees no acknowledgement.
-        if (accepted)
-          await b.page.evaluate(() => {
-            (globalThis as typeof globalThis & Record<string, boolean>)[
-              '__SP_E2E_BLOCK_IMMEDIATE_UPLOAD'
-            ] = false;
-          });
+        await b.page.evaluate(() => {
+          (globalThis as typeof globalThis & Record<string, boolean>)[
+            '__SP_E2E_BLOCK_IMMEDIATE_UPLOAD'
+          ] = false;
+        });
         await renameTask(b, title, `${title}-B`);
-        if (!accepted) await b.sync.clickSyncBtn();
         await expect.poll(() => dropped, { timeout: 30000 }).toBe(true);
         await b.page.evaluate(blockBackgroundSync);
         await expect(b.sync.syncSpinner).not.toBeVisible();
@@ -249,7 +238,21 @@ test.describe('@supersync time delta upload identity', () => {
         await waitForAppReady(b.page);
         await b.sync.clickSyncBtn();
         await expectExactTaskTime(b, title, expectedTime);
-        expect((await readDeltas(b))[0].op).toEqual(original);
+        expect((await readDeltas(b))[0].op.p).toEqual(original.p);
+        // The server already stored the original: this changed clock must use
+        // receipt recovery on retry, rather than an unchanged duplicate upload.
+        if (accepted) expect((await readDeltas(b))[0].op.v).not.toEqual(original.v);
+        // The time check passes mid-cycle. Let the cycle finish (its upload fails
+        // offline) so the reload below does not interrupt remote-op application.
+        await expect
+          .poll(async () =>
+            (await readStoredOps(b)).some(
+              ({ source, applicationStatus }) =>
+                source === 'remote' && applicationStatus !== 'applied',
+            ),
+          )
+          .toBe(false);
+        await expect(b.sync.syncSpinner).not.toBeVisible();
         await unrouteSuperSyncOps(b.page);
 
         // Reload across the durable conflict-resolution / upload-ack boundary.
@@ -262,7 +265,12 @@ test.describe('@supersync time delta upload identity', () => {
         expect(delivered.op.p).toEqual(original.p);
         if (accepted) expect(delivered.op).toEqual(original);
         else expect(delivered.op.v).not.toEqual(original.v);
+        const fresh = await createSimulatedClient(browser, baseURL!, 'Fresh', testRunId);
+        clients.push(fresh);
+        await fresh.sync.setupSuperSync(config);
+        await fresh.sync.syncAndWait();
         for (const client of clients) {
+          await waitForTask(client.page, `${title}-B`);
           await expectExactTaskTime(client, title, expectedTime);
           await client.page.reload();
           await waitForAppReady(client.page);

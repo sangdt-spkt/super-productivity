@@ -30,13 +30,97 @@ describe('time delta upload retries', () => {
     expect(result.failures).toEqual([]);
   }, 60000);
 
+  // #10614 across tabs: B tracks t1 again while its upload is in flight, and
+  // another tab uploads that delta without acknowledging it yet. The rejection
+  // rebase moves it with the rejected one, so its re-upload differs from the
+  // stored op (INVALID_OP_ID) and the receipt check restores its clock (#10499).
+  it('recovers a delta another tab stored while the rejected upload was in flight', async () => {
+    const harness = await SyncFuzzHarness.create();
+    const [a, b, c] = [
+      await harness.addDevice('A'),
+      await harness.addDevice('B'),
+      await harness.addDevice('C'),
+    ];
+    const run = (device: FuzzDevice, intent: Intent): Promise<unknown> =>
+      harness.as(device, () => executeIntent(harness, intent));
+    const deltasOnB = (): Promise<OperationLogEntry[]> =>
+      harness.as(b, async () =>
+        (await TestBed.inject(OperationLogStoreService).getOpsAfterSeq(0)).filter(
+          ({ op }) => op.actionType === ActionType.TIME_TRACKING_SYNC_TIME_SPENT,
+        ),
+      );
+    for (const intent of SETUP_INTENTS) await run(a, intent);
+    for (const device of [a, b, c]) await harness.sync(device);
+    await run(a, ['renameTask', 't1', 'A remote']);
+    await harness.sync(a);
+    await run(b, ['track', 't1', 3000]);
+
+    const upload = b.client.uploadOps.bind(b.client);
+    const codes: (string | undefined)[] = [];
+    let inFlight: OperationLogEntry | undefined;
+    b.client.uploadOps = async (ops, clientId, lastKnownServerSeq) => {
+      const result = await upload(ops, clientId, lastKnownServerSeq);
+      codes.push(...result.results.map((r) => r.errorCode));
+      if (!inFlight) {
+        // B is the active device here, so the intent runs without `as`.
+        await executeIntent(harness, ['track', 't1', 2000]);
+        inFlight = (await TestBed.inject(OperationLogStoreService).getUnsynced()).find(
+          ({ op }) => !ops.some((sent) => sent.id === op.id),
+        );
+        const { op } = inFlight!;
+        const stored = await upload(
+          [
+            {
+              id: op.id,
+              clientId: op.clientId,
+              actionType: op.actionType,
+              opType: op.opType,
+              entityType: op.entityType,
+              entityId: op.entityId,
+              entityIds: op.entityIds,
+              payload: op.payload,
+              vectorClock: op.vectorClock,
+              timestamp: op.timestamp,
+              schemaVersion: op.schemaVersion,
+            },
+          ],
+          clientId,
+        );
+        expect(stored.results.map((r) => r.accepted)).toEqual([true]);
+      }
+      return result;
+    };
+    for (let round = 0; round < 3; round++) {
+      for (const device of [b, a, c]) await harness.sync(device);
+    }
+    b.client.uploadOps = upload;
+
+    expect(codes).toContain('CONFLICT_CONCURRENT');
+    expect(codes).toContain('INVALID_OP_ID');
+    expect(harness.events).toEqual([]);
+    const recovered = (await deltasOnB()).find(({ op }) => op.id === inFlight!.op.id);
+    expect(recovered?.syncedAt).toBeDefined();
+    expect(recovered?.rejectedAt).toBeUndefined();
+    expect(recovered?.op.vectorClock).toEqual(inFlight!.op.vectorClock);
+    for (const device of [a, b, c]) {
+      for (let restart = 0; restart < 2; restart++) {
+        const task = viewOf(await harness.as(device, () => harness.state())).tasks.find(
+          (t) => t.id === 't1',
+        );
+        expect(task?.timeSpent).toBe(5000);
+        expect(task?.title).toBe('A remote');
+        await harness.restart(device);
+      }
+    }
+  }, 60000);
+
   for (const boundary of [
     'application',
     'download',
     'rejection',
     'acceptance',
   ] as const) {
-    it(`counts a rejected delta once after restart at ${boundary}`, async () => {
+    it(`counts a delta once after restart at ${boundary}`, async () => {
       const harness = await SyncFuzzHarness.create();
       const [a, b, c] = [
         await harness.addDevice('A'),
@@ -64,6 +148,27 @@ describe('time delta upload retries', () => {
       const original = (await pending()).find(
         ({ op }) => op.actionType === ActionType.TIME_TRACKING_SYNC_TIME_SPENT,
       )!;
+      // A rejection must happen before download: resolution now rebases eligible
+      // SuperSync deltas, so uploading after download no longer exercises rejection.
+      let rejectedDelta = false;
+      let lostResponse = false;
+      if (boundary === 'rejection') {
+        const uploadBeforeDownload = b.client.uploadOps.bind(b.client);
+        b.client.uploadOps = async (...args) => {
+          const result = await uploadBeforeDownload(...args);
+          rejectedDelta = result.results.some(
+            (r) => r.opId === original.op.id && r.errorCode === 'CONFLICT_CONCURRENT',
+          );
+          expect(rejectedDelta).toBeTrue();
+          lostResponse = true;
+          throw new Error('test: upload response lost');
+        };
+        await expectAsync(
+          inSession((sync) => sync.uploadPendingOps(b.client, { isNeverSynced: false })),
+        ).toBeRejectedWithError('test: upload response lost');
+        b.client.uploadOps = uploadBeforeDownload;
+        await harness.restart(b);
+      }
       const download = (): Promise<unknown> =>
         inSession(async (sync) => {
           const applier = TestBed.inject(OperationApplierService);
@@ -88,20 +193,28 @@ describe('time delta upload retries', () => {
       } else {
         await download();
       }
-      expect((await pending()).find(({ op }) => op.id === original.op.id)).toEqual(
-        original,
-      );
+      const rebased = (await pending()).find(({ op }) => op.id === original.op.id)!;
+      expect(rebased).toBeDefined();
+      expect(rebased.op.vectorClock).not.toEqual(original.op.vectorClock);
+      expect({
+        ...rebased,
+        op: { ...rebased.op, vectorClock: original.op.vectorClock },
+      }).toEqual(original);
 
       const patch = (await pending()).find(({ op }) => isLwwUpdatePayload(op.payload))!;
       expect(patch).toBeDefined();
       const upload = b.client.uploadOps.bind(b.client);
-      let rejectedDelta = false;
       let acceptedPatch = false;
-      let lostResponse = false;
+      const rejectionCodes: (string | undefined)[] = [];
       b.client.uploadOps = async (...args) => {
         const result = await upload(...args);
         rejectedDelta ||= result.results.some(
-          (r) => r.opId === original.op.id && !r.accepted,
+          (r) => r.opId === original.op.id && r.errorCode === 'CONFLICT_CONCURRENT',
+        );
+        rejectionCodes.push(
+          ...result.results
+            .filter((r) => r.opId === original.op.id && !r.accepted)
+            .map((r) => r.errorCode),
         );
         acceptedPatch ||= result.results.some(
           (r) => r.opId === patch.op.id && r.accepted,
@@ -109,17 +222,13 @@ describe('time delta upload retries', () => {
         const deltaAccepted = result.results.some(
           (r) => r.opId === original.op.id && r.accepted,
         );
-        if (
-          !lostResponse &&
-          ((boundary === 'rejection' && rejectedDelta && acceptedPatch) ||
-            (boundary === 'acceptance' && deltaAccepted))
-        ) {
+        if (!lostResponse && boundary === 'acceptance' && deltaAccepted) {
           lostResponse = true;
           throw new Error('test: upload response lost');
         }
         return result;
       };
-      if (boundary === 'rejection' || boundary === 'acceptance') {
+      if (boundary === 'acceptance') {
         for (let attempt = 0; attempt < 3 && !lostResponse; attempt++) {
           try {
             await inSession((sync) =>
@@ -135,24 +244,19 @@ describe('time delta upload retries', () => {
       for (let round = 0; round < 3; round++) {
         for (const device of [b, a, c]) await harness.sync(device);
       }
-      expect(rejectedDelta).toBeTrue();
+      expect(rejectedDelta).toBe(boundary === 'rejection');
+      // An unchanged retry after a lost acceptance is a duplicate, not a conflict.
+      expect(rejectionCodes).toEqual(
+        boundary === 'acceptance' ? ['DUPLICATE_OPERATION'] : [],
+      );
       expect(acceptedPatch).toBeTrue();
       expect(harness.events).toEqual([]);
       expect(await pending()).toEqual([]);
       const delivered = await harness.as(b, () =>
         TestBed.inject(OperationLogStoreService).getOpById(original.op.id),
       );
-      if (boundary === 'application') {
-        // The interrupted resolution also left the original rename pending.
-        // It cannot commute past the accepted title patch, so the existing
-        // snapshot fallback retires both originals without copying the delta.
-        expect(delivered?.syncedAt).toBeUndefined();
-        expect(delivered?.rejectedAt).toBeDefined();
-        expect(delivered?.op).toEqual(original.op);
-      } else {
-        expect(delivered?.syncedAt).toBeDefined();
-        expect(delivered?.rejectedAt).toBeUndefined();
-      }
+      expect(delivered?.syncedAt).toBeDefined();
+      expect(delivered?.rejectedAt).toBeUndefined();
       expect(delivered?.seq).toBe(original.seq);
       expect(delivered?.op.payload).toEqual(original.op.payload);
       for (const device of [a, b, c]) {
