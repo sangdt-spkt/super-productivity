@@ -40,7 +40,7 @@ steps:
       - find server-deploy -path '*/.git' -prune -o -name 'deployment.yaml' -print
       - cd server-deploy
       - git checkout feature-argocd-layout
-      - cd server-deploy/deploy/kubernetes/apps/default-ns/super-sync-server
+      - cd deploy/kubernetes/apps/default-ns/super-sync-server
       - 'sed -i "s|image: git.samurai-planet.top/sangdt-spkt/super-sync-server:.*|image: git.samurai-planet.top/sangdt-spkt/super-sync-server:$${VERSION}|" deployment.yaml'
       - git config user.name "woodpecker-bot"
       - git config user.email "sangdt.spkt@gmail.com"
