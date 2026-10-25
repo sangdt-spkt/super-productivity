@@ -38,6 +38,7 @@ steps:
       - git clone https://x-access-token:$${GITOPS_TOKEN}@github.com/sangdt-spkt/server-deploy.git server-deploy
       - ls -la server-deploy
       - find server-deploy -path '*/.git' -prune -o -name 'deployment.yaml' -print
+      - git checkout feature-argocd-layout
       - cd server-deploy/deploy/kubernetes/apps/default-ns/super-sync-server
       - 'sed -i "s|image: git.samurai-planet.top/sangdt-spkt/super-sync-server:.*|image: git.samurai-planet.top/sangdt-spkt/super-sync-server:$${VERSION}|" deployment.yaml'
       - git config user.name "woodpecker-bot"
