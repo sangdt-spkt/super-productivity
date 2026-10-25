@@ -26,3 +26,19 @@ steps:
             from_secret: forgejo-deploy-user
           password:
             from_secret: forgejo-deploy-token
+
+  - name: update-image-deploy
+    image: alpine/git
+    environment:
+      GITOPS_TOKEN:
+        from_secret: github-token
+    commands:
+      - VERSION=$(cat .tags)
+      - echo "Updating image to $${VERSION}"
+      - git clone https://x-access-token:$${GITOPS_TOKEN}@github.com/sangdt-spkt/server-deploy.git
+      - cd server-deploy/deploy/kubernetes/apps/default-ns/super-sync-server
+      - 'sed -i "s|image: git.samurai-planet.top/sangdt-spkt/super-sync-server:.*|image: git.samurai-planet.top/sangdt-spkt/super-sync-server:$${VERSION}|" deployment.yaml'
+      - git config user.name "woodpecker-bot"
+      - git config user.email "sangdt.spkt@gmail.com"
+      - git commit -am "ci:update super-sync-server to $${VERSION}" || echo "no changes"
+      - git push
