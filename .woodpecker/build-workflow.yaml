@@ -44,4 +44,4 @@ steps:
       - git config user.email "sangdt.spkt@gmail.com"
       - git add .
       - git commit -am "ci:update super-sync-server to $${VERSION}" || echo "no changes"
-      - git push
+      - git push origin
