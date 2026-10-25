@@ -1,18 +1,47 @@
 when:
   - event: [push, manual, cron]
     branch: master
+  - event: manual
+    branch: [dev, feature-*]
 
 steps:
+  # Create tag from package.version of super productivity app
+  - name: prepare-tag
+    image: node:20-alpine
+    commands:
+      - node -p "require('./package.json').version" > .tags
+      - echo "Tag value in .tags"
+      - cat .tags
+
   - name: docker-build
     image: woodpeckerci/plugin-docker-buildx
     settings:
+      repo: git.samurai-planet.top/sangdt-spkt/super-sync-server
       dockerfile: packages/super-sync-server/Dockerfile
       platforms: linux/amd64
-      auto_tag: "true"
-      default_tag: "19.1.0"
+      no_cache: "true"
       logins:
-        - registry: https://git.samurai-planet.top/
+        - registry: https://git.samurai-planet.top
           username:
             from_secret: forgejo-deploy-user
           password:
             from_secret: forgejo-deploy-token
+
+  - name: update-image-deploy
+    image: alpine/git
+    environment:
+      GITOPS_TOKEN:
+        from_secret: github-token
+    commands:
+      - VERSION=$(cat .tags)
+      - echo "Updating image to $${VERSION}"
+      - git clone https://x-access-token:$${GITOPS_TOKEN}@github.com/sangdt-spkt/server-deploy.git server-deploy
+      - cd server-deploy
+      - git checkout feature-argocd-layout
+      - cd deploy/kubernetes/apps/default-ns/super-sync-server
+      - 'sed -i "s|image: git.samurai-planet.top/sangdt-spkt/super-sync-server:.*|image: git.samurai-planet.top/sangdt-spkt/super-sync-server:$${VERSION}|" deployment.yaml'
+      - git config user.name "woodpecker-bot"
+      - git config user.email "sangdt.spkt@gmail.com"
+      - git add .
+      - git commit -am "ci:update super-sync-server to $${VERSION}" || echo "no changes"
+      - git push origin
